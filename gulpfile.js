@@ -1,55 +1,87 @@
-var gulp = require('gulp'),
+/* globals process: fasle */
+var _ = require('lodash'), // jshint ignore:line
+	gulp = require('gulp'),
 	less = require('gulp-less'),
-	connect = require('gulp-connect'),
-	browserify = require('gulp-browserify'),
-	filter = require('gulp-filter'),
-	to5 = require('gulp-6to5'),
-	jsx = require('gulp-jsx'),
-	rimraf = require('rimraf');
+	browserify = require('browserify'),
+	watchify = require('watchify'),
+	to5Browserify = require('6to5-browserify'),
+	rimraf = require('rimraf'),
+	source = require('vinyl-source-stream'),
+	browserSync = require('browser-sync'),
+	reload = browserSync.reload;
 
-var path = {
-	src: {
-		js: './src/**/*.js',
-		less: './less/main.less',
-		lessAll: './less/**/*.less'
+
+var config = {
+	js: {
+		entry: './src/app.js',
+		outputFile: 'app.js'
 	},
-	dist: 'compiled/'
+	less: {
+		entry: './less/main.less',
+		all: './less/**/*.less'
+	},
+	distDir: './dist/',
+	serverBase: './'
 };
+
 
 // clean the output directory
 gulp.task('clean', function(cb){
-	return rimraf('compiled-', cb);
+	rimraf(config.distDir, cb);
+});
+
+var bundler;
+function getBundler() {
+	if (!bundler) {
+		bundler = watchify(browserify(config.js.entry, _.extend({ debug: true }, watchify.args)));
+	}
+	return bundler;
+}
+
+function bundle() {
+	return getBundler()
+		.transform(to5Browserify)
+		.bundle()
+		.on('error', function(err) { console.log('Error: ' + err.message); })
+		.pipe(source(config.js.outputFile))
+		.pipe(gulp.dest(config.distDir))
+		.pipe(reload({ stream: true }));
+}
+
+gulp.task('build-js', ['clean'], function() {
+	return bundle();
 });
 
 gulp.task('build-less', function(){
-	return gulp.src(path.src.less)
+	return gulp.src(config.less.entry)
 		.pipe(less())
-		.pipe(gulp.dest(path.dist + 'css'));
+		.pipe(gulp.dest(config.distDir + 'css'));
 });
 
-gulp.task('build-js', function() {
-	gulp.src(path.src.js)
-		.pipe(jsx())
-		.pipe(to5())
-		.pipe(gulp.dest('compiled/src'))
-		.pipe(browserify({
-			insertGlobals: true,
-			debug: true
-		}))
-		.pipe(filter('app.js'))
-		.pipe(gulp.dest(path.dist + 'combined'));
+
+gulp.task('build', ['clean', 'build-js', 'build-less'], function() {
+	process.exit(0);
 });
 
-// WATCH FILES FOR CHANGES
-gulp.task('dev', ['clean', 'build-js', 'build-less', 'server'], function() {
-	gulp.watch(path.src.js, ['build-js']);
-	gulp.watch(path.src.lessAll, ['build-less']);
+gulp.task('dev', ['clean', 'build-js', 'build-less'], function() {
+	browserSync({
+		server: {
+			baseDir: config.serverBase
+		}
+	});
+
+	getBundler().on('update', function() {
+		gulp.start('build-js');
+	});
+
+	gulp.watch(config.less.all, ['build-less']);
 });
 
 // WEB SERVER
-gulp.task('server', connect.server({
-	root: [__dirname],
-	port: 8000,
-	open: true,
-	livereload: false
-}));
+gulp.task('serve', function () {
+	browserSync({
+		server: {
+			baseDir: config.serverBase
+		}
+	});
+});

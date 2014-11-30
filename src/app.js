@@ -1,19 +1,35 @@
-const React = require('react');
-import {Person} from './model/Person';
+const Cycle = require('cyclejs');
 
-global.app = function () {
-    var christoph = new Person('Christoph', 'Burgdorf');
-    console.log(christoph.fullName);
-};
+var HelloModel = Cycle.createModel(['changeName$'], function (intent) {
+	return {
+		name$: intent.changeName$.startWith('')
+	};
+});
 
-(function(){
+var HelloView = Cycle.createView(['name$'], function (model) {
+	return {
+		vtree$: model.name$
+			.map(function (name) {
+				return Cycle.h('div', {}, [
+					Cycle.h('label', 'Name:'),
+					Cycle.h('input', {
+						'attributes': {'type': 'text'},
+						'ev-input': 'inputText$'
+					}),
+					Cycle.h('hr'),
+					Cycle.h('h1', 'Hello ' + name)
+				]);
+			}),
+		events: ['inputText$']
+	};
+});
 
-	var hello = React.createClass({
-		render: function() {
-			return React.DOM.div({}, 'hello ' + this.props.name);
-		}
-	});
-	hello = React.createFactory(hello);
+var HelloIntent = Cycle.createIntent(['inputText$'], function (view) {
+	return {
+		changeName$: view.inputText$
+			.map(function (ev) { return ev.target.value; })
+	};
+});
 
-	React.render(hello({name: 'World'}), document.body);
-})();
+Cycle.createRenderer('body').inject(HelloView);
+Cycle.circularInject(HelloModel, HelloView, HelloIntent);

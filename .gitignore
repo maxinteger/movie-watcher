@@ -28,5 +28,5 @@ node_modules
 .lock-wscript
 
 node_modules/
-compiled/
+dist/
 .idea
