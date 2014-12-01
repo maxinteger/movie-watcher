@@ -63,7 +63,9 @@ gulp.task('build', ['clean', 'build-js', 'build-less'], function() {
 	process.exit(0);
 });
 
-gulp.task('dev', ['clean', 'build-js', 'build-less'], function() {
+gulp.task('dev', ['clean'], function() {
+	gulp.start('build-js');
+	gulp.start('build-less');
 	browserSync({
 		server: {
 			baseDir: config.serverBase
